@@ -48,6 +48,17 @@ Engineering students in India face a **fragmented placement preparation experien
 
 ---
 
+## 🆕 Recent Updates & New Features
+
+We've recently rolled out major new capabilities to the platform:
+- **Automatic AI Fallback Chain**: Never hit a rate limit again! The system now routes automatically from Gemini → Groq → OpenRouter.
+- **ATS Resume Analyzer**: Upload your resume and job description to get instant ATS scores and missing skills analysis (Web & Mobile).
+- **Live Learn (Notes Q&A)**: Upload class PDFs and query them instantly using a grounded RAG pipeline.
+- **Integrated Job Search**: Directly browse and apply for roles matching your career path via the Naukri RapidAPI + get daily automated email alerts.
+- **Enhanced UI/UX**: Completely redesigned glassmorphism interface with custom gradients and polished components.
+
+---
+
 ## ✨ Key Features
 
 ### 🤖 AI-Powered Features
