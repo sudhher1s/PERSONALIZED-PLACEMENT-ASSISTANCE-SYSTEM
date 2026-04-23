@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { GraduationCap, Menu, X, LogOut, User, LayoutDashboard, Trophy } from "lucide-react";
+import { GraduationCap, Menu, X, LogOut, User, LayoutDashboard, Trophy, Building2, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -41,6 +41,12 @@ export function Navbar() {
         { label: "Dashboard", path: "/admin" },
       ];
     }
+    if (user.role === "company_admin") {
+      return [
+        { label: "Dashboard", path: "/company" },
+        { label: "Edit Profile", path: "/company/profile" },
+      ];
+    }
     return [
       { label: "Home", path: "/" },
       { label: "Dashboard", path: "/dashboard" },
@@ -65,9 +71,13 @@ export function Navbar() {
       <div className="container mx-auto px-4 h-14 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-bold text-xl">
           <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
-            <GraduationCap className="w-5 h-5 text-primary-foreground" />
+            {user?.role === "company_admin" ? (
+              <Building2 className="w-5 h-5 text-primary-foreground" />
+            ) : (
+              <GraduationCap className="w-5 h-5 text-primary-foreground" />
+            )}
           </div>
-          <span className="gradient-text hidden sm:inline">PlacePrep</span>
+          <span className="gradient-text hidden sm:inline">{user?.role === "company_admin" ? "PlacePrep Recruiter" : "PlacePrep"}</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-1 h-14">
@@ -95,10 +105,12 @@ export function Navbar() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-muted/70 transition-colors duration-300">
-                    <div className="text-xs text-muted-foreground tabular-nums inline-flex items-center gap-1">
-                      <span aria-hidden>🔥</span>
-                      <span>{healthPoints}</span>
-                    </div>
+                    {user.role !== "company_admin" && (
+                      <div className="text-xs text-muted-foreground tabular-nums inline-flex items-center gap-1">
+                        <span aria-hidden>🔥</span>
+                        <span>{healthPoints}</span>
+                      </div>
+                    )}
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={String(avatarUrl || "")} alt="Profile" />
                       <AvatarFallback>{firstLetter(user.profile?.fullName)}</AvatarFallback>
@@ -133,6 +145,21 @@ export function Navbar() {
                     >
                       <LayoutDashboard className="w-4 h-4 mr-2" /> Admin Dashboard
                     </DropdownMenuItem>
+                  ) : user.role === "company_admin" ? (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => navigate("/company")}
+                        className="cursor-pointer rounded-lg hover:bg-muted/70 focus:bg-muted/70"
+                      >
+                        <LayoutDashboard className="w-4 h-4 mr-2" /> Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => navigate("/company/profile")}
+                        className="cursor-pointer rounded-lg hover:bg-muted/70 focus:bg-muted/70"
+                      >
+                        <UserCog className="w-4 h-4 mr-2" /> Edit Profile
+                      </DropdownMenuItem>
+                    </>
                   ) : (
                     <>
                       <DropdownMenuItem

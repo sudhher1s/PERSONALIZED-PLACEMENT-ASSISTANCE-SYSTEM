@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { FileText, Upload, X as XIcon } from "lucide-react";
 
 function firstLetter(name: string | undefined) {
   const s = String(name ?? "").trim();
@@ -47,7 +48,15 @@ export default function ProfileEdit() {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
+  // Resume state
+  const [resumeUrl, setResumeUrl] = useState<string | null>(user?.resumeUrl ?? null);
+  const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+  const [resumePending, setResumePending] = useState(false);
+
   useEffect(() => setForm(initial), [initial]);
+  useEffect(() => {
+    if (user?.resumeUrl) setResumeUrl(user.resumeUrl);
+  }, [user?.resumeUrl]);
 
   const onPickAvatarFile = async (file: File | null) => {
     if (!file) return;
@@ -66,6 +75,28 @@ export default function ProfileEdit() {
       reader.readAsDataURL(file);
     });
     setForm((f: any) => ({ ...f, avatarUrl: dataUrl }));
+  };
+
+  const onPickResumeFile = async (file: File | null) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast({ title: "Invalid file", description: "Please select a PDF file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5_000_000) {
+      toast({ title: "File too large", description: "Resume must be under 5MB.", variant: "destructive" });
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.readAsDataURL(file);
+    });
+    setResumeUrl(dataUrl);
+    setResumeFileName(file.name);
+    setResumePending(true);
+    toast({ title: "Resume ready", description: "Click Save Changes to upload." });
   };
 
   const toNum = (v: any) => {
@@ -102,6 +133,11 @@ export default function ProfileEdit() {
         },
       };
 
+      // Attach resume if pending
+      if (resumePending && resumeUrl) {
+        payload.resumeUrl = resumeUrl;
+      }
+
       for (const key of ["education", "experience", "career"]) {
         const obj = payload[key];
         if (!obj) continue;
@@ -111,6 +147,7 @@ export default function ProfileEdit() {
 
       await api.updateProfile(payload);
       toast({ title: "Profile updated", description: "Your profile was saved successfully." });
+      setResumePending(false);
       await refreshUser();
     } catch (e: any) {
       toast({ title: "Update failed", description: e?.error ?? "Could not update profile.", variant: "destructive" });
@@ -140,40 +177,90 @@ export default function ProfileEdit() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-4">
-          <Card className="glass-card lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Student</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={String(form.avatarUrl || "")} alt="Profile" />
-                  <AvatarFallback>{firstLetter(form.fullName)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="font-semibold truncate">{user?.profile?.email}</div>
-                  <div className="text-xs text-muted-foreground">Email is read-only</div>
+          <div className="lg:col-span-1 space-y-4">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Student</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={String(form.avatarUrl || "")} alt="Profile" />
+                    <AvatarFallback>{firstLetter(form.fullName)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{user?.profile?.email}</div>
+                    <div className="text-xs text-muted-foreground">Email is read-only</div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="avatar">Profile picture</Label>
-                <Input id="avatar" type="file" accept="image/*" onChange={(e) => onPickAvatarFile(e.target.files?.[0] ?? null)} />
-                <div className="text-xs text-muted-foreground">PNG/JPG under 1MB.</div>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="avatar">Profile picture</Label>
+                  <Input id="avatar" type="file" accept="image/*" onChange={(e) => onPickAvatarFile(e.target.files?.[0] ?? null)} />
+                  <div className="text-xs text-muted-foreground">PNG/JPG under 1MB.</div>
+                </div>
 
-              <Separator />
+                <Separator />
 
-              <div className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
-                <Input id="name" value={form.fullName} onChange={(e) => setForm((f: any) => ({ ...f, fullName: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" value={form.phone} onChange={(e) => setForm((f: any) => ({ ...f, phone: e.target.value }))} />
-              </div>
-            </CardContent>
-          </Card>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full name</Label>
+                  <Input id="name" value={form.fullName} onChange={(e) => setForm((f: any) => ({ ...f, fullName: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" value={form.phone} onChange={(e) => setForm((f: any) => ({ ...f, phone: e.target.value }))} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ── Resume Upload Card ── */}
+            <Card className="glass-card border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="w-4 h-4 text-primary" /> Resume (PDF)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {resumeUrl ? (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                    <FileText className="w-8 h-8 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{resumeFileName ?? "resume.pdf"}</p>
+                      <p className="text-xs text-emerald-400 flex items-center gap-1 mt-0.5">
+                        ✓ {resumePending ? "Ready to save" : "Uploaded"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setResumeUrl(null); setResumeFileName(null); setResumePending(false); }}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="resume-upload"
+                    className="flex flex-col items-center gap-2 p-6 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                  >
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <span className="text-sm font-medium">Upload Resume</span>
+                    <span className="text-xs text-muted-foreground">PDF only · Max 5MB</span>
+                  </label>
+                )}
+                <Input
+                  id="resume-upload"
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => onPickResumeFile(e.target.files?.[0] ?? null)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your resume will be visible to company recruiters who can filter and download it.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="lg:col-span-2 space-y-4">
             <Card className="glass-card">

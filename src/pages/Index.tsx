@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
   Code2, Brain, Users, Trophy, Rocket, Target, BookOpen,
-  ArrowRight, CheckCircle2, ChevronRight, Sparkles, X as XIcon
+  ArrowRight, CheckCircle2, ChevronRight, Sparkles, X as XIcon, Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
@@ -329,6 +329,50 @@ export default function Index() {
                   Start Free Today <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Company / Recruiter Section */}
+      <section className="py-16 md:py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="glass-card p-8 md:p-14 text-center max-w-3xl mx-auto relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-cyan-500/5" />
+            <motion.div variants={fadeUp} custom={0} className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4">
+                <Building2 className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Are You a{" "}
+                <span className="gradient-text">Recruiter?</span>
+              </h2>
+              <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+                Sign up as a company admin to access our recruiter dashboard — browse placement-ready students, filter by interview score, download resumes, and find your next great hire.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link to="/company/signup">
+                  <Button size="lg" className="gradient-primary text-primary-foreground border-0 gap-2 text-base px-8 shadow-glow">
+                    <Building2 className="w-4 h-4" />
+                    Company Sign Up <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+                <Link to="/login">
+                  <Button size="lg" variant="outline" className="gap-2 text-base px-8">
+                    Company Login <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+              <div className="flex items-center justify-center gap-6 mt-6 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-success" /> Email verified</div>
+                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-success" /> Free to use</div>
+                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-success" /> Resume access</div>
+              </div>
             </motion.div>
           </motion.div>
         </div>

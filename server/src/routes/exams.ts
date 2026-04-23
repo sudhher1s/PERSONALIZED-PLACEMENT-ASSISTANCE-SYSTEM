@@ -188,16 +188,60 @@ examRouter.post("/submit", requireAuth, async (req, res) => {
   const to = String((u as any)?.profile?.email ?? "").trim();
   if (to) {
     const name = String((u as any)?.profile?.fullName ?? "Student");
+    const pct = Math.round(percentage);
+    const barColor = pct >= 80 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444";
+    const gradeEmoji = grade === "A+" || grade === "A" ? "🏆" : grade === "B" ? "👏" : grade === "C" ? "💪" : "📚";
     sendEmailInBackground({
       to,
-      subject: `PlacePrep: ${examType.toUpperCase()} exam completed`,
+      subject: `${gradeEmoji} PlacePrep: ${examType.toUpperCase()} Exam Results — ${pct}%`,
       text:
         `Hi ${name},\n\n` +
         `You completed the ${examType.toUpperCase()} exam.\n` +
-        `Score: ${score}/${totalQuestions} (${Math.round(percentage)}%)\n` +
+        `Score: ${score}/${totalQuestions} (${pct}%)\n` +
         `Grade: ${grade}\n\n` +
         `Keep going!\n` +
         `PlacePrep`,
+      html: `
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <div style="background:linear-gradient(135deg,#6c63ff,#9c5fff);padding:28px 24px;text-align:center;">
+            <div style="font-size:40px;margin-bottom:6px;">${gradeEmoji}</div>
+            <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;">Exam Results</h1>
+            <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:13px;">${examType.toUpperCase()} Exam Completed</p>
+          </div>
+          <div style="padding:24px;">
+            <p style="color:#333;font-size:15px;margin:0 0 16px;">Hi <strong>${name}</strong>,</p>
+            <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 20px;">
+              Great job completing your <strong>${examType.toUpperCase()}</strong> exam! Here are your results:
+            </p>
+            <div style="background:#f8f9fb;border-radius:12px;padding:20px;margin-bottom:20px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:13px;color:#888;">Score</span>
+                <span style="font-size:20px;font-weight:800;color:#333;">${score} / ${totalQuestions}</span>
+              </div>
+              <div style="height:8px;border-radius:99px;background:#e5e7eb;overflow:hidden;margin-bottom:12px;">
+                <div style="height:100%;width:${pct}%;border-radius:99px;background:${barColor};"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:13px;color:#888;">Percentage</span>
+                <span style="font-size:18px;font-weight:700;color:${barColor};">${pct}%</span>
+              </div>
+            </div>
+            <div style="text-align:center;margin-bottom:20px;">
+              <div style="display:inline-block;background:linear-gradient(135deg,#f0edff,#e8e4ff);border:1px solid #d4d0ff;border-radius:12px;padding:12px 28px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#8b83c7;margin-bottom:2px;">Grade</div>
+                <div style="font-size:28px;font-weight:900;color:#6c63ff;">${grade}</div>
+              </div>
+            </div>
+            <div style="text-align:center;">
+              <a href="http://localhost:8080/dashboard" style="display:inline-block;background:linear-gradient(135deg,#6c63ff,#9c5fff);color:#fff;text-decoration:none;padding:12px 32px;border-radius:10px;font-weight:700;font-size:14px;">
+                View Dashboard →
+              </a>
+            </div>
+          </div>
+          <div style="padding:14px 24px;background:#f9fafb;border-top:1px solid #eee;text-align:center;">
+            <p style="color:#aaa;font-size:11px;margin:0;">PlacePrep Placement Assistance System</p>
+          </div>
+        </div>`,
     });
   }
 

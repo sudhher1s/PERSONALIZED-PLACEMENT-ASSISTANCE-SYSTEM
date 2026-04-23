@@ -33,7 +33,7 @@ export interface UserProfile {
 export interface User {
   id: string;
   studentId: string;
-  role: "student" | "admin";
+  role: "student" | "admin" | "company_admin";
   profile: UserProfile;
   gamification?: {
     healthPoints: number;
@@ -42,6 +42,11 @@ export interface User {
     lastCheckInDate?: string;
     badges?: Array<{ id: string; unlockedAt: string }>;
   };
+  // Company-specific
+  companyName?: string;
+  hiringFor?: string;
+  // Student resume (base64 PDF)
+  resumeUrl?: string;
 }
 
 interface AuthContextType {
@@ -51,6 +56,7 @@ interface AuthContextType {
   signup: (payload: any) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  setUserFromToken: (token: string, user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -98,8 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const setUserFromToken = (token: string, userData: User) => {
+    setToken(token);
+    setUser(userData);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser, setUserFromToken }}>
       {children}
     </AuthContext.Provider>
   );

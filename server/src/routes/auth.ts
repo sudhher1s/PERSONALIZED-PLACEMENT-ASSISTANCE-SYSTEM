@@ -12,7 +12,7 @@ import { sendEmail } from "../services/mailer";
 export const authRouter = Router();
 
 const signupSchema = z.object({
-  role: z.enum(["student", "admin"]).default("student"),
+  role: z.enum(["student", "admin", "company_admin"]).default("student"),
   password: z.string().min(8),
 
   // Data URL (base64) avatar support. Keep bounded to avoid huge documents.
@@ -23,6 +23,10 @@ const signupSchema = z.object({
   phone: z.string().regex(/^[0-9]{10}$/, "Phone must be 10 digits"),
 
   bio: z.string().max(300).optional(),
+
+  // Company-specific (only used when role = company_admin)
+  companyName: z.string().min(2).max(120).optional(),
+  hiringFor: z.string().min(2).max(120).optional(),
 
   education: z
     .object({
@@ -66,7 +70,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function signToken(userId: string, role: "student" | "admin") {
+function signToken(userId: string, role: "student" | "admin" | "company_admin") {
   return jwt.sign({ userId, role }, env.JWT_SECRET, { expiresIn: "7d" });
 }
 
@@ -101,7 +105,7 @@ authRouter.post("/signup", async (req, res) => {
   const passwordHash = await bcrypt.hash(data.password, 12);
 
   const studentId = makeStudentId();
-  const payload = {
+  const payload: any = {
     studentId,
     role: data.role,
     passwordHash,
@@ -116,6 +120,10 @@ authRouter.post("/signup", async (req, res) => {
       career: data.career,
     },
   };
+  if (data.role === "company_admin") {
+    payload.companyName = data.companyName;
+    payload.hiringFor = data.hiringFor;
+  }
 
   const useTransactions = await supportsTransactions();
 
@@ -137,6 +145,8 @@ authRouter.post("/signup", async (req, res) => {
           role: created.role,
           profile: created.profile,
           gamification: created.gamification,
+          companyName: created.companyName,
+          hiringFor: created.hiringFor,
         },
       });
     } catch (e: any) {
@@ -161,6 +171,8 @@ authRouter.post("/signup", async (req, res) => {
         role: created.role,
         profile: created.profile,
         gamification: created.gamification,
+        companyName: created.companyName,
+        hiringFor: created.hiringFor,
       },
     });
   } catch (e: any) {
@@ -169,6 +181,76 @@ authRouter.post("/signup", async (req, res) => {
     }
     throw e;
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COMPANY SIGNUP OTP FLOW
+// ═══════════════════════════════════════════════════════════════════════
+const companyOtpStore = new Map<string, { otp: string; expiresAt: number; attempts: number }>();
+
+// Step 1: Request OTP before company signup
+authRouter.post("/company-otp/send", async (req, res) => {
+  const parsed = z.object({ email: z.string().email() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Please provide a valid email." });
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const exists = await User.findOne({ "profile.email": email });
+  if (exists) return res.status(409).json({ error: "Email already registered." });
+
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  companyOtpStore.set(email, { otp, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
+  console.log(`[CompanyOTP] OTP for ${email}: ${otp}`);
+
+  const emailResult = await sendEmail({
+    to: email,
+    subject: "🏢 PlacePrep — Company Verification OTP",
+    text: `Your OTP to verify your company account is: ${otp}\n\nThis OTP expires in 10 minutes.`,
+    html: `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;">
+        <div style="background:linear-gradient(135deg,#6c63ff,#9c5fff);padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">🏢 Company Verification</h1>
+        </div>
+        <div style="background:#fff;padding:24px;border:1px solid #eee;border-top:none;text-align:center;">
+          <p style="color:#333;font-size:15px;margin-bottom:16px;">Your one-time password is:</p>
+          <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#6c63ff;background:#f4f4ff;padding:16px;border-radius:12px;display:inline-block;">${otp}</div>
+          <p style="color:#888;font-size:13px;margin-top:16px;">This OTP expires in <strong>10 minutes</strong>.</p>
+        </div>
+      </div>`,
+  });
+
+  if (!emailResult.ok && !emailResult.skipped) {
+    console.error("[CompanyOTP] Email send failed:", emailResult.error);
+    return res.status(500).json({ error: `Failed to send OTP email: ${emailResult.error ?? "Unknown error"}. Check SMTP configuration.` });
+  }
+  if (emailResult.skipped) {
+    console.warn(`[CompanyOTP] Email skipped (SMTP not configured). OTP for ${email}: ${otp}`);
+  }
+
+  return res.json({ ok: true, message: "OTP sent to company email." });
+});
+
+// Step 2: Verify company OTP
+authRouter.post("/company-otp/verify", async (req, res) => {
+  const parsed = z.object({ email: z.string().email(), otp: z.string().length(6) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Please provide email and 6-digit OTP." });
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const entry = companyOtpStore.get(email);
+  if (!entry) return res.status(400).json({ error: "No OTP requested. Please request a new one." });
+  if (Date.now() > entry.expiresAt) {
+    companyOtpStore.delete(email);
+    return res.status(400).json({ error: "OTP expired. Please request a new one." });
+  }
+  if (entry.attempts >= 5) {
+    companyOtpStore.delete(email);
+    return res.status(429).json({ error: "Too many failed attempts. Please request a new OTP." });
+  }
+  if (entry.otp !== parsed.data.otp) {
+    entry.attempts++;
+    return res.status(400).json({ error: "Invalid OTP. Please try again." });
+  }
+  companyOtpStore.delete(email);
+  return res.json({ valid: true });
 });
 
 authRouter.post("/login", async (req, res) => {
@@ -222,7 +304,83 @@ authRouter.post("/login", async (req, res) => {
   const token = signToken(String(user._id), user.role);
   return res.json({
     token,
-    user: { id: String(user._id), studentId: user.studentId, role: user.role, profile: user.profile, gamification: user.gamification },
+    user: { id: String(user._id), studentId: user.studentId, role: user.role, profile: user.profile, gamification: user.gamification, companyName: user.companyName, hiringFor: user.hiringFor, resumeUrl: user.resumeUrl },
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  OTP-BASED EMAIL LOGIN
+// ═══════════════════════════════════════════════════════════════════════
+const loginOtpStore = new Map<string, { otp: string; expiresAt: number; attempts: number }>();
+
+authRouter.post("/login-otp/send", async (req, res) => {
+  const parsed = z.object({ email: z.string().email() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Please provide a valid email." });
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const user = await User.findOne({ "profile.email": email });
+  if (!user) return res.status(404).json({ error: "No account found with this email." });
+
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  loginOtpStore.set(email, { otp, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
+  console.log(`[LoginOTP] OTP for ${email}: ${otp}`);
+
+  const emailResult = await sendEmail({
+    to: email,
+    subject: "🔐 PlacePrep — Login OTP",
+    text: `Your OTP to log in is: ${otp}\n\nThis OTP expires in 10 minutes.`,
+    html: `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;">
+        <div style="background:linear-gradient(135deg,#6c63ff,#9c5fff);padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">🔐 Login Verification</h1>
+        </div>
+        <div style="background:#fff;padding:24px;border:1px solid #eee;border-top:none;text-align:center;">
+          <p style="color:#333;font-size:15px;margin-bottom:16px;">Your one-time login code is:</p>
+          <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#6c63ff;background:#f4f4ff;padding:16px;border-radius:12px;display:inline-block;">${otp}</div>
+          <p style="color:#888;font-size:13px;margin-top:16px;">This OTP expires in <strong>10 minutes</strong>.</p>
+        </div>
+      </div>`,
+  });
+
+  if (!emailResult.ok && !emailResult.skipped) {
+    console.error("[LoginOTP] Email send failed:", emailResult.error);
+    return res.status(500).json({ error: `Failed to send OTP email: ${emailResult.error ?? "Unknown error"}. Check SMTP configuration.` });
+  }
+  if (emailResult.skipped) {
+    console.warn(`[LoginOTP] Email skipped (SMTP not configured). OTP for ${email}: ${otp}`);
+  }
+
+  return res.json({ ok: true, message: "OTP sent to your email." });
+});
+
+authRouter.post("/login-otp/verify", async (req, res) => {
+  const parsed = z.object({ email: z.string().email(), otp: z.string().length(6) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Please provide email and 6-digit OTP." });
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const entry = loginOtpStore.get(email);
+  if (!entry) return res.status(400).json({ error: "No OTP requested. Please request a new one." });
+  if (Date.now() > entry.expiresAt) {
+    loginOtpStore.delete(email);
+    return res.status(400).json({ error: "OTP expired. Please request a new one." });
+  }
+  if (entry.attempts >= 5) {
+    loginOtpStore.delete(email);
+    return res.status(429).json({ error: "Too many failed attempts. Please request a new OTP." });
+  }
+  if (entry.otp !== parsed.data.otp) {
+    entry.attempts++;
+    return res.status(400).json({ error: "Invalid OTP. Please try again." });
+  }
+  loginOtpStore.delete(email);
+
+  const user = await User.findOne({ "profile.email": email });
+  if (!user) return res.status(404).json({ error: "User not found." });
+
+  const token = signToken(String(user._id), user.role);
+  return res.json({
+    token,
+    user: { id: String(user._id), studentId: user.studentId, role: user.role, profile: user.profile, gamification: user.gamification, companyName: user.companyName, hiringFor: user.hiringFor, resumeUrl: user.resumeUrl },
   });
 });
 
@@ -235,6 +393,9 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     role: user.role,
     profile: user.profile,
     gamification: user.gamification,
+    companyName: user.companyName,
+    hiringFor: user.hiringFor,
+    resumeUrl: user.resumeUrl,
   });
 });
 
@@ -281,8 +442,10 @@ const updateProfileSchema = z
         softSkillsLevel: z.enum(["Beginner", "Intermediate", "Advanced"]).optional(),
       })
       .optional(),
-  })
-  .strict();
+
+    // Student resume (base64 PDF, up to 5MB)
+    resumeUrl: z.string().max(8_000_000).optional(),
+  });
 
 authRouter.patch("/profile", requireAuth, async (req, res) => {
   const parsed = updateProfileSchema.safeParse(req.body);
@@ -311,6 +474,10 @@ authRouter.patch("/profile", requireAuth, async (req, res) => {
   }
 
   user.profile = profile;
+  if (typeof data.resumeUrl === "string") {
+    (user as any).resumeUrl = data.resumeUrl;
+  }
+  user.markModified("resumeUrl");
   await user.save();
 
   return res.json({
@@ -319,6 +486,9 @@ authRouter.patch("/profile", requireAuth, async (req, res) => {
     role: user.role,
     profile: user.profile,
     gamification: user.gamification,
+    resumeUrl: (user as any).resumeUrl,
+    companyName: (user as any).companyName,
+    hiringFor: (user as any).hiringFor,
   });
 });
 

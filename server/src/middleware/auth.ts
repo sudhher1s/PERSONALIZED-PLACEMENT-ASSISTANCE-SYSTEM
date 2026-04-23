@@ -4,7 +4,7 @@ import { env } from "../config/env";
 
 export interface AuthUser {
   userId: string;
-  role: "student" | "admin";
+  role: "student" | "admin" | "company_admin";
 }
 
 declare global {
@@ -36,6 +36,14 @@ export function requireRole(role: AuthUser["role"]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: "Missing token" });
     if (req.user.role !== role) return res.status(403).json({ error: "Forbidden" });
+    return next();
+  };
+}
+
+export function requireAnyRole(...roles: AuthUser["role"][]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: "Missing token" });
+    if (!roles.includes(req.user.role)) return res.status(403).json({ error: "Forbidden" });
     return next();
   };
 }

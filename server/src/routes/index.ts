@@ -14,6 +14,7 @@ import resumeAnalyzerRouter from "./resumeAnalyzer";
 import { alertsRouter } from "./alerts";
 import { knowledgeRouter } from "./knowledge";
 import { interviewV2Router } from "./interviewV2";
+import { companyRouter } from "./company";
 
 export const apiRouter = Router();
 
@@ -32,3 +33,4 @@ apiRouter.use("/study-assistant", studyAssistantRouter);
 apiRouter.use("/resume", resumeAnalyzerRouter);
 apiRouter.use("/alerts", alertsRouter);
 apiRouter.use("/knowledge", knowledgeRouter);
+apiRouter.use("/company", companyRouter);

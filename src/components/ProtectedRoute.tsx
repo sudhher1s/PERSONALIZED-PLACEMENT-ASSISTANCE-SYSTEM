@@ -4,7 +4,13 @@ import { useAuth } from "@/context/AuthContext";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRole?: "student" | "admin";
+  requiredRole?: "student" | "admin" | "company_admin";
+}
+
+function getRoleHome(role: string): string {
+  if (role === "admin") return "/admin";
+  if (role === "company_admin") return "/company";
+  return "/dashboard";
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
@@ -24,10 +30,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   if (requiredRole && user.role !== requiredRole) {
-    // Redirect student trying to access admin page to dashboard
-    // Redirect admin trying to access student page to admin dashboard
-    const redirectTo = user.role === "admin" ? "/admin" : "/dashboard";
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={getRoleHome(user.role)} replace />;
   }
 
   return <>{children}</>;
@@ -46,8 +49,7 @@ export function PublicRoute({ children }: { children: ReactNode }) {
 
   // If already logged in, redirect to appropriate dashboard
   if (user) {
-    const redirectTo = user.role === "admin" ? "/admin" : "/dashboard";
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={getRoleHome(user.role)} replace />;
   }
 
   return <>{children}</>;

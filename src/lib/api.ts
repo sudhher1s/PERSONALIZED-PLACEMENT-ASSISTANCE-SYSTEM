@@ -206,4 +206,28 @@ export const api = {
     request<any>("/api/interview-v2/live-learn/chat", { method: "POST", body: JSON.stringify(payload) }),
   liveLearnQuiz: (payload: { notes: string }) =>
     request<any>("/api/interview-v2/live-learn/quiz", { method: "POST", body: JSON.stringify(payload) }),
+
+  // ── Company Admin ──
+  companyOtpSend: (email: string) =>
+    request<{ ok: boolean; message: string }>("/api/auth/company-otp/send", { method: "POST", body: JSON.stringify({ email }) }),
+  companyOtpVerify: (email: string, otp: string) =>
+    request<{ valid: boolean }>("/api/auth/company-otp/verify", { method: "POST", body: JSON.stringify({ email, otp }) }),
+  companyStats: () => request<any>("/api/company/stats"),
+  companyStudents: (params?: { sort?: string; careerPath?: string; search?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.sort) qs.set("sort", params.sort);
+    if (params?.careerPath) qs.set("careerPath", params.careerPath);
+    if (params?.search) qs.set("search", params.search);
+    return request<{ students: any[] }>(`/api/company/students?${qs.toString()}`);
+  },
+
+  // ── Login OTP ──
+  loginOtpSend: (email: string) =>
+    request<{ ok: boolean; message: string }>("/api/auth/login-otp/send", { method: "POST", body: JSON.stringify({ email }) }),
+  loginOtpVerify: (email: string, otp: string) =>
+    request<{ token: string; user: any }>("/api/auth/login-otp/verify", { method: "POST", body: JSON.stringify({ email, otp }) }),
+
+  // ── Company Invite ──
+  companySendInvite: (studentId: string, message?: string) =>
+    request<{ ok: boolean; message: string }>("/api/company/send-invite", { method: "POST", body: JSON.stringify({ studentId, message }) }),
 };

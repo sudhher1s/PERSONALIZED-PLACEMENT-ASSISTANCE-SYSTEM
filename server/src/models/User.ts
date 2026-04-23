@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-export type UserRole = "student" | "admin";
+export type UserRole = "student" | "admin" | "company_admin";
 
 export type BadgeId =
   | "streak_7"
@@ -69,6 +69,11 @@ export interface UserDoc {
   passwordHash: string;
   profile: StudentProfile;
   gamification: GamificationProfile;
+  // Company-specific fields
+  companyName?: string;
+  hiringFor?: string;
+  // Student resume (base64 PDF stored on student document)
+  resumeUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -139,10 +144,15 @@ const studentProfileSchema = new Schema<StudentProfile>(
 const userSchema = new Schema<UserDoc>(
   {
     studentId: { type: String, required: true, unique: true, index: true },
-    role: { type: String, enum: ["student", "admin"], required: true, default: "student" },
+    role: { type: String, enum: ["student", "admin", "company_admin"], required: true, default: "student" },
     passwordHash: { type: String, required: true },
     profile: { type: studentProfileSchema, required: true },
     gamification: { type: gamificationSchema, required: true, default: () => ({}) },
+    // Company-specific
+    companyName: { type: String, trim: true },
+    hiringFor: { type: String, trim: true },
+    // Student resume (base64 PDF)
+    resumeUrl: { type: String },
   },
   { timestamps: true }
 );

@@ -24,6 +24,9 @@ import ResumeAnalyzer from "./pages/ResumeAnalyzer";
 import ForgotPassword from "./pages/ForgotPassword";
 import CompanyPrep from "./pages/CompanyPrep";
 import LiveLearn from "./pages/LiveLearn";
+import CompanySignup from "./pages/CompanySignup";
+import CompanyDashboard from "./pages/CompanyDashboard";
+import CompanyProfileEdit from "./pages/CompanyProfileEdit";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +43,11 @@ const App = () => (
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
               <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+
+              {/* Company signup is public */}
+              <Route path="/company/signup" element={<PublicRoute><CompanySignup /></PublicRoute>} />
+
+              {/* Student routes */}
               <Route path="/dashboard" element={<ProtectedRoute requiredRole="student"><Dashboard /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute requiredRole="student"><Profile /></ProtectedRoute>} />
               <Route path="/profile/edit" element={<ProtectedRoute requiredRole="student"><ProfileEdit /></ProtectedRoute>} />
@@ -52,7 +60,14 @@ const App = () => (
               <Route path="/company-prep" element={<ProtectedRoute requiredRole="student"><CompanyPrep /></ProtectedRoute>} />
               <Route path="/live-learn" element={<ProtectedRoute requiredRole="student"><LiveLearn /></ProtectedRoute>} />
               <Route path="/exam/:type" element={<ProtectedRoute requiredRole="student"><Exam /></ProtectedRoute>} />
+
+              {/* Admin routes */}
               <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+
+              {/* Company admin routes */}
+              <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
+              <Route path="/company/profile" element={<ProtectedRoute requiredRole="company_admin"><CompanyProfileEdit /></ProtectedRoute>} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
